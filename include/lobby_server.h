@@ -15,8 +15,9 @@ class LobbyServer : public QObject {
         ~LobbyServer();
 
     public slots:
-        void run();
-        void read_socket();
+        void new_connection();
+        void ready_read();
+        void state_changed(QAbstractSocket::SocketState state);
 
     signals:
         void finished();
@@ -25,14 +26,20 @@ class LobbyServer : public QObject {
         struct Lobby {
             int id;
             quint8 player_count;
-            QElapsedTimer alive_timer;
+            QTimer* alive_timer;
+            QTcpSocket* p1 = nullptr;
+            QTcpSocket* p2 = nullptr;
+            bool operator==(const Lobby& rhs) { return this->id == rhs.id; }
         };
         const int MAX_LOBBIES = 5;
         int current_id;
-        void process_datagram(QNetworkDatagram datagram);
-        void send_lobbies(QHostAddress address, quint16 port);
+        void process_packet(QTcpSocket* sender, QByteArray data);
+        void send_lobbies(QTcpSocket* socket);
         void create_lobby();
-        QUdpSocket* socket;
+        void join_lobby(QTcpSocket* sender, int id);
+        void start_game(int id);
+        QTcpServer server;
+        QVector<QTcpSocket*> clients;
         QVector<Lobby> lobbies;
 
 };
