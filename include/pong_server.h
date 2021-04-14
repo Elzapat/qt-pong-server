@@ -8,9 +8,13 @@ class PongServer : public QThread {
     Q_OBJECT
 
     public:
-        explicit PongServer(QObject* parent = 0);
+        explicit PongServer(QTcpSocket* p1_i, QTcpSocket* p2_i, QObject* parent = 0);
         ~PongServer();
         void run() override;
+
+    private:
+        QTcpSocket* p1;
+        QTcpSocket* p2;
 };
 
 #endif // PONG_SERVER_H
