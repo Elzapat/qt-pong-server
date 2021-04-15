@@ -3,6 +3,8 @@
 
 #include <QtCore>
 #include <QtNetwork>
+#include "player.h"
+#include "ball.h"
 
 class PongServer : public QThread {
     Q_OBJECT
@@ -10,11 +12,17 @@ class PongServer : public QThread {
     public:
         explicit PongServer(QTcpSocket* p1_i, QTcpSocket* p2_i, QObject* parent = 0);
         ~PongServer();
-        void run() override;
+
+    public slots:
+        void update_ball();
+        void send_data();
 
     private:
-        QTcpSocket* p1;
-        QTcpSocket* p2;
+        Player p1;
+        Player p2;
+        Ball ball;
+        QTimer* update_timer;
+        bool game_started;
 };
 
 #endif // PONG_SERVER_H

@@ -124,8 +124,6 @@ void LobbyServer::leave_lobby(QTcpSocket* sender, int id) {
 
 void LobbyServer::kill_lobby(int id) {
     delete lobbies[id].alive_timer;
-    // delete lobbies[id].p1;
-    // delete lobbies[id].p2;
     lobbies.remove(id); 
     // Tell all the clients a lobby has died
     for (QTcpSocket* client : clients)
@@ -133,6 +131,8 @@ void LobbyServer::kill_lobby(int id) {
 }
 
 void LobbyServer::start_game(int id) {
+    clients.removeOne(lobbies[id].p1);
+    clients.removeOne(lobbies[id].p1);
     kill_lobby(id);
 
     PongServer* server = new PongServer(lobbies[id].p1, lobbies[id].p2, this);
