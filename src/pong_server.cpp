@@ -17,10 +17,12 @@ PongServer::PongServer(QTcpSocket* p1_i, QTcpSocket* p2_i, QObject* parent) :
 
     this->connect(p1.get_socket(), &QAbstractSocket::disconnected, this, [this] {
         emit server_ended();
+        send_data("end;");
         p2.get_socket()->disconnectFromHost();
     });
     this->connect(p2.get_socket(), &QAbstractSocket::disconnected, this, [this] {
         emit server_ended();
+        send_data("end;");
         p1.get_socket()->disconnectFromHost();
     });
 }
