@@ -23,7 +23,7 @@ void LobbyServer::ready_read() {
     QTcpSocket* sender = static_cast<QTcpSocket*>(QObject::sender());
     QByteArray data = sender->readAll();
 
-    qDebug() << "new packet" << data;
+    // qDebug() << "new packet" << data;
 
     process_packet(sender, data);
 }
@@ -45,19 +45,22 @@ void LobbyServer::state_changed(QAbstractSocket::SocketState state) {
 }
 
 void LobbyServer::process_packet(QTcpSocket* sender, QByteArray data) {
-    QList<QByteArray> args_bytes = data.split(';');
-    QStringList args;
-    for (auto arg_bytes : args_bytes)
-        args.append(QString::fromLocal8Bit(arg_bytes));
+    QStringList packets;
+    for (QByteArray& packet_bytes : data.split('%'))
+        packets.append(QString::fromLocal8Bit(packet_bytes));
 
-    if (args[0] == "lobbies")
-        send_lobbies(sender);
-    else if (args[0] == "create_lobby")
-        create_lobby();
-    else if (args[0] == "join_lobby")
-        join_lobby(sender, args[1].toInt());
-    else if (args[0] == "leave_lobby")
-        leave_lobby(sender, args[1].toInt());
+    for (QString& packet : packets) {
+        QStringList args = packet.split(';');
+
+        if (args[0] == "lobbies")
+            send_lobbies(sender);
+        else if (args[0] == "create_lobby")
+            create_lobby();
+        else if (args[0] == "join_lobby")
+            join_lobby(sender, args[1].toInt());
+        else if (args[0] == "leave_lobby")
+            leave_lobby(sender, args[1].toInt());
+    }
 }
 
 void LobbyServer::send_lobbies(QTcpSocket* socket) {
@@ -68,7 +71,7 @@ void LobbyServer::send_lobbies(QTcpSocket* socket) {
         response += QString::number(lobby.player_count) + ';';
     }
 
-    socket->write(response.toLocal8Bit());
+    socket->write((response + '%').toLocal8Bit());
 }
 
 void LobbyServer::create_lobby() {
@@ -95,7 +98,7 @@ void LobbyServer::create_lobby() {
 void LobbyServer::join_lobby(QTcpSocket* sender, int id) {
     if (!lobbies.contains(id)) return;
 
-    sender->write(("join_lobby;" + QString::number(id) + ';').toLocal8Bit());
+    sender->write(("join_lobby;" + QString::number(id) + '%').toLocal8Bit());
 
     lobbies[id].player_count++;
     if (lobbies[id].p1 == nullptr)
@@ -110,32 +113,60 @@ void LobbyServer::join_lobby(QTcpSocket* sender, int id) {
 void LobbyServer::leave_lobby(QTcpSocket* sender, int id) {
     if (!lobbies.contains(id)) return;
 
-    sender->write(("leave_lobby;" + QString::number(id) + ';').toLocal8Bit());
+    sender->write(("leave_lobby;" + QString::number(id) + '%').toLocal8Bit());
 
     lobbies[id].player_count--;
-    if (lobbies[id].p1 == sender) {
-        delete lobbies[id].p1;
-        lobbies[id].p1 = nullptr;
-    } else if (lobbies[id].p2 == sender) {
-        delete lobbies[id].p2;
-        lobbies[id].p2 = nullptr;
-    }
+
+    sender = nullptr;
+
+    // if (lobbies[id].p1 == sender) {
+    //     delete lobbies[id].p1;
+    //     lobbies[id].p1 = nullptr;
+    // } else if (lobbies[id].p2 == sender) {
+    //     delete lobbies[id].p2;
+    //     lobbies[id].p2 = nullptr;
+    // }
 }
 
 void LobbyServer::kill_lobby(int id) {
     delete lobbies[id].alive_timer;
-    lobbies.remove(id); 
+    // lobbies.remove(id); 
     // Tell all the clients a lobby has died
     for (QTcpSocket* client : clients)
-        client->write(("lobby_died;" + QString::number(id) + ';').toLocal8Bit());
+        client->write(("lobby_died;" + QString::number(id) + '%').toLocal8Bit());
+
+    lobbies.remove(id);
 }
 
 void LobbyServer::start_game(int id) {
     clients.removeOne(lobbies[id].p1);
-    clients.removeOne(lobbies[id].p1);
-    kill_lobby(id);
+    clients.removeOne(lobbies[id].p2);
+
+    lobbies[id].p1->write(QString("game_start%").toLocal8Bit());
+    lobbies[id].p2->write(QString("game_start%").toLocal8Bit());
+
+    this->disconnect(lobbies[id].p1, SIGNAL(readyRead()), this, SLOT(ready_read()));
+    this->disconnect(lobbies[id].p1, SIGNAL(stateChanged(QAbstractSocket::SocketState)),
+            this, SLOT(state_changed(QAbstractSocket::SocketState)));
+
+    this->disconnect(lobbies[id].p2, SIGNAL(readyRead()), this, SLOT(ready_read()));
+    this->disconnect(lobbies[id].p2, SIGNAL(stateChanged(QAbstractSocket::SocketState)),
+            this, SLOT(state_changed(QAbstractSocket::SocketState)));
 
     PongServer* server = new PongServer(lobbies[id].p1, lobbies[id].p2, this);
     server->start();
     servers.push_back(server);
+
+    this->connect(server, SIGNAL(server_ended()), this, SLOT(pong_server_ended()));
+
+    kill_lobby(id);
+}
+
+void LobbyServer::pong_server_ended() {
+    PongServer* server = qobject_cast<PongServer*>(sender());
+
+    if (server == nullptr) return;
+
+    servers.removeOne(server);
+    server->exit(0);
 }

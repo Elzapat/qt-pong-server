@@ -20,8 +20,13 @@ add_executable(qt-pong-server
     src/main.cpp
     src/lobby_server.cpp
     src/pong_server.cpp
+    src/ball.cpp
+    src/player.cpp
     include/lobby_server.h
     include/pong_server.h
+    include/ball.h
+    include/player.h
+    include/constants.h
 )
 
 target_link_libraries(qt-pong-server

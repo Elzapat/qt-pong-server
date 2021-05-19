@@ -5,6 +5,7 @@
 #include <QtNetwork>
 #include "player.h"
 #include "ball.h"
+#include "constants.h"
 
 class PongServer : public QThread {
     Q_OBJECT
@@ -14,8 +15,12 @@ class PongServer : public QThread {
         ~PongServer();
 
     public slots:
-        void update_ball();
-        void send_data();
+        void update();
+        void send_data(QString data);
+        void player_scored(int player);
+
+    signals:
+        void server_ended();
 
     private:
         Player p1;

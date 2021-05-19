@@ -18,6 +18,7 @@ class LobbyServer : public QObject {
         void new_connection();
         void ready_read();
         void state_changed(QAbstractSocket::SocketState state);
+        void pong_server_ended();
 
     private:
         struct Lobby {
